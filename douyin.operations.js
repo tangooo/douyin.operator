@@ -9,12 +9,16 @@
 // @grant        none
 // ==/UserScript==
 
+/*
+https://www.douyin.com/search/*
+ */
 (function () {
     'use strict';
 
     window.setting = {
-        vedio: {
-            time: '7',
+        selfNiceName: '',
+        video: {
+            time: '180',
             title: {
                 contains: [],
                 notContains: []
@@ -26,52 +30,60 @@
             isLike: false,
             isAIDialog: false,
             isCollect: false,
+            isBreakpoint: true,
             postContent: null
         },
         comment: {
             area: '安徽',
-            time: '7',
+            time: '90',
             content: {
                 contains: [],
                 notContains: []
             },
-            isLike: false,
-            isExpand: false,
-            isAIDialog: false,
+            isLike: true,
+            isExpand: true,
+            isAIDialog: true,
             replyContent: null
-        },
-        aiRequestUrl: 'https://192.168.0.17:9999/m='
+        }
     };
 
     //任务计数器
     window.counter = {
-        vedio : 0,
-        vedioLike : 0,
-        vedioFavorite : 0,
-        vedioPostComment: 0,
-        comment : 0,
+        video: 0,
+        videoLike: 0,
+        videoFavorite: 0,
+        videoPostComment: 0,
+        comment: 0,
         likeComment: 0,
         replyComment: 0,
-        incrementVedio: function () {
-            console.log("[counter] --> increment vedio : " + (++this.vedio));
+        currentComment: 0,
+        currentLikeComment: 0,
+        currentReplyComment: 0,
+        incrementVideo: function () {
+            console.log("[counter] --> increment video : " + (++this.video));
         },
-        incrementVedioLike: function () {
-            console.log("[counter] --> increment vedio like : " + (++this.vedioLike));
+        incrementVideoLike: function () {
+            console.log("[counter] --> increment video like : " + (++this.videoLike));
         },
-        incrementVedioFavorite: function () {
-            console.log("[counter] --> increment vedio favorite : " + (++this.vedioFavorite));
+        incrementVideoFavorite: function () {
+            console.log("[counter] --> increment video favorite : " + (++this.videoFavorite));
         },
-        incrementVedioPostComment: function () {
-            console.log("[counter] --> increment vedio post comment : " + (++this.vedioPostComment));
+        incrementVideoPostComment: function () {
+            console.log("[counter] --> increment video post comment : " + (++this.videoPostComment));
+        },
+        resetCurrent: function () {
+            this.currentComment = 0;
+            this.currentLikeComment = 0;
+            this.currentReplyComment = 0;
         },
         incrementComment: function () {
-            console.log("[counter] --> increment comment : " + (++this.comment));
+            console.log("[counter] --> increment comment : " + (++this.comment) + ", current comment :" + (++this.currentComment));
         },
         incrementLikeComment: function () {
-            console.log("[counter] --> increment like comment : " + (++this.likeComment));
+            console.log("[counter] --> increment like comment : " + (++this.likeComment) + ", current like comment :" + (++this.currentLikeComment));
         },
         incrementReplyComment: function () {
-            console.log("[counter] --> increment reply comment : " + (++this.replyComment));
+            console.log("[counter] --> increment reply comment : " + (++this.replyComment) + ", current reply comment :" + (++this.currentReplyComment));
         }
     }
 
@@ -88,35 +100,40 @@
     let douyinView = {
         open: async function (ele, time) {
             ele.getElementsByTagName('a')[0].click();
-            counter.incrementVedio();
             await sleep(time);
         },
         pause: async function (time) {
-            let pauseButton = document.querySelector('#sliderVideo .xgplayer-play[data-state="play"]');
-            pauseButton.click();
-            await sleep(time);
+            let pauseButton = document.querySelector('.dySwiperSlide div[data-e2e="feed-active-video"] .xgplayer-play[data-state="play"]');
+            if (pauseButton) {
+                pauseButton.click();
+                await sleep(time);
+            }
         },
         like: async function (time) {
-            let likeButton = document.querySelector('#sliderVideo div[data-e2e="video-player-digg"]');
+            let likeButton = document.querySelector('.dySwiperSlide div[data-e2e="feed-active-video"] div[data-e2e="video-player-digg"]');
             let stateAttr;
             if ((stateAttr = likeButton.getAttribute('data-e2e-state')) && (stateAttr == 'video-player-is-digged')) {
                 return;
             }
             likeButton.click();
-            counter.incrementVedioLike();
+            counter.incrementVideoLike();
             await sleep(time);
         },
         favorite: async function (time) {
-            let likeButton = document.querySelector('#sliderVideo div[data-e2e="video-player-collect"]');
+            let likeButton = document.querySelector('.dySwiperSlide div[data-e2e="feed-active-video"] div[data-e2e="video-player-collect"]');
             let stateAttr;
             if ((stateAttr = likeButton.getAttribute('data-e2e-state')) && (stateAttr == 'video-player-is-collected')) {
                 return;
             }
             likeButton.click();
-            counter.incrementVedioFavorite();
+            counter.incrementVideoFavorite();
             await sleep(time);
         },
         openComment: async function (time) {
+            let container = document.getElementById('videoSideBar')
+            if (container && (container.clientWidth) > 0) {
+                return;
+            }
             let commentButton = document.querySelector('#sliderVideo div[data-e2e="feed-comment-icon"]');
             commentButton.click();
             await sleep(time);
@@ -128,10 +145,8 @@
             await sleep(1000);
         },
         postComment: async function (comment, replyElement) {
-            if(replyElement){
-                var divs = replyElement.querySelectorAll('div:first-child');
-                var replyel =divs[divs.length - 1];
-                replyel.click();
+            if (replyElement) {
+                replyElement.click();
                 await sleep(3000);
             }
             //clean
@@ -154,7 +169,7 @@
             keyupEvent.initEvent('keyup', true, true)
             keyupEvent.keyCode = keyupEvent.which = 46
             anchorNode.dispatchEvent(keyupEvent)
-            await sleep(1000);
+            await sleep(500);
 
             //setting
             var event = new MouseEvent('paste', {
@@ -166,7 +181,7 @@
                 getData: () => comment,
             }
             document.querySelector('.public-DraftEditor-content').dispatchEvent(event)
-            await sleep(500);
+            await sleep(2000);
             let commentSubmit = document.querySelector('.commentInput-right-ct span:last-child')
 
             var clickEvent = new MouseEvent('click', {
@@ -175,63 +190,88 @@
                 'cancelable': true
             });
             commentSubmit.dispatchEvent(clickEvent);
-            if(replyElement){
+            if (replyElement) {
                 counter.incrementReplyComment();
-            }else {
-                counter.incrementVedioPostComment();
+            } else {
+                counter.incrementVideoPostComment();
             }
             await sleep(2000);
         },
-        expandComment: async function(){
-            var expandButtons = document.querySelectorAll('button.comment-reply-expand-btn');
-            for(var i = 0; i < expandButtons.length; i++ ){
-                expandButtons[i].click();
-                await sleep(1000);
-            }
-        },
-        loadComment: function (execution, _start) {
-            if(setting.comment.isExpand){
-                console.log('setting isExpand is true, will be expand comment.');
-                douyinView.expandComment();
-            }
-            // 点赞每条评论
-            let comments = document.querySelectorAll('#merge-all-comment-container div[data-e2e="comment-item"]');
-            var commentsLength = comments.length;
+        expandComment: async function () {
+            let expandButtons = null;
+            let moreButtons = null;
+            let i = 0;
+            //
 
-            let createCommentObject = function (comment) {
-                let contentElement = comment.querySelector('.comment-item-info-wrap').nextSibling;
-                //
-                let commentObj = {
-                    niceName: comment.querySelector('.comment-item-info-wrap a span').textContent,
-                    content: contentElement.textContent,
-                    timeArea: contentElement.nextSibling.textContent
-                }
-                let faceElement = null;
-                if ((faceElement = comment.querySelector('.comment-item-avatar img'))) {
-                    if (faceElement.src) {
-                        commentObj.face = faceElement.src;
+            while ((expandButtons = document.querySelectorAll('button.comment-reply-expand-btn div:has(svg):not(div[executive="true"])')) && expandButtons && (expandButtons.length > 0)) {
+                for (let j = 0; j < expandButtons.length; j++) {
+                    i += 1;
+                    console.log('click expand button : [' + i + ']');
+                    expandButtons[j].click();
+                    expandButtons[j].setAttribute("executive", "true")
+                    await sleep(1000);
+
+                    while ((moreButtons = document.querySelectorAll('button.iRduembj div:has(svg):not(div[executive="true"])')) && moreButtons && (moreButtons.length > 0)) {
+                        for (let k = 0; k < moreButtons.length; k++) {
+                            i += 1;
+                            console.log('click expand button : [' + i + ']');
+                            moreButtons[k].click();
+                            moreButtons[j].setAttribute("executive", "true")
+                            await sleep(1000);
+                        }
                     }
                 }
-                console.log("analysis vedio comments of : " + JSON.stringify(commentObj));
-                return commentObj;
-            }        
-
-            for (let i = _start; i < comments.length; i++) {
-                let commentObj = createCommentObject(comments[i]);
+            }
+        },
+        createCommentObject: function (commentElement) {
+            let contentElement = commentElement.querySelector('.comment-item-info-wrap').nextSibling;
+            //
+            let link = commentElement.querySelector('.comment-item-avatar a').href.split('/')
+            let commentObj = {
+                niceName: commentElement.querySelector('.comment-item-info-wrap a span').textContent,
+                content: contentElement.textContent,
+                timeArea: contentElement.nextSibling.textContent,
+                userId: link[link.length - 1]
+            }
+            let faceElement = commentElement.querySelector('.comment-item-avatar img');
+            if (faceElement && faceElement.src) {
+                commentObj.face = faceElement.src;
+            }
+            console.log("analysis video comments of : " + JSON.stringify(commentObj));
+            return commentObj;
+        },
+        loadComment: async function (executor) {
+            if (setting.comment.isExpand) {
+                console.log('setting isExpand is true, will be expand comment.');
+                await douyinView.expandComment();
+            }
+            //"executive", "true"
+            let comments = document.querySelectorAll('#merge-all-comment-container div[data-e2e="comment-item"]:not(div[executive="true"])');
+            console.log('#merge-all-comment-container comments length: ' + comments.length);
+            for (var i = 0; i < comments.length; i++) {
+                comments[i].setAttribute("executive", "true");
+                let commentObj = douyinView.createCommentObject(comments[i]);
                 counter.incrementComment();
-                if(douyinView.validateComment(commentObj)){
-                    execution.push({element: comments[i], data: commentObj})
+                if (douyinView.validateComment(commentObj)) {
+                    console.log('push comment object to execution [' + JSON.stringify(commentObj) + ']');
+                    executor.execution.push({element: comments[i], data: commentObj})
                 }
             }
-            return commentsLength;
+            return comments.length > 0;
         },
         close: async function (time) {
-            let closeButton = document.querySelector('#douyin-sidebar + div .isDark')
+            //model
+            let closeButton = document.querySelector('#douyin-right-container .isDark')
             if (closeButton == null) {
-                closeButton = document.querySelector('#douyin-right-container .isDark')
+                let closeButton = document.querySelector('#douyin-sidebar + div .isDark')
             }
-
-            var closeEvent = new MouseEvent('click', {
+            if (closeButton == null) {
+                closeButton = document.querySelector('.search-horizontal-layout #douyin-right-container .isDark')
+            }
+            if (closeButton == null) {
+                closeButton = document.querySelector('#videoSideBar svg')
+            }
+            let closeEvent = new MouseEvent('click', {
                 'view': window,
                 'bubbles': true,
                 'cancelable': true
@@ -239,41 +279,47 @@
             closeButton.dispatchEvent(closeEvent)
             await sleep(time);
         },
-        validateComment : function(comment, commentElement){
-            if(setting.comment.area){
+        validateComment: function (comment) {
+            if (!comment) {
+                return false;
+            }
+            if (setting.comment.area) {
                 var filterArea = (douyinView.filters.area(comment.timeArea, setting.comment.area))
                 console.log('validate region : ' + filterArea + " , setting : " + setting.comment.area);
-                if(!filterArea){
+                if (!filterArea) {
                     console.log('validate region illegal: ' + filterArea + " , setting : " + setting.comment.area);
                     return false;
                 }
             }
-    
-            if(setting.comment.time){
+
+            if (setting.comment.time) {
                 var filterTime = (douyinView.filters.time(comment.timeArea, setting.comment.time))
                 console.log('validate time : ' + filterTime + " , setting : " + setting.comment.time);
-                if(!filterTime){
+                if (!filterTime) {
                     console.log('validate time illegal : ' + filterTime + " , setting : " + setting.comment.time);
                     return false;
                 }
             }
-    
-            if(setting.comment.content.contains || setting.comment.content.notContains){
+
+            if (setting.comment.content.contains || setting.comment.content.notContains) {
                 var filterRule = (douyinView.filters.contains(comment.content, setting.comment.content.contains, setting.comment.content.notContains))
                 console.log('validate content : ' + comment.content + " , setting : {contains : " + setting.comment.content.contains + " ,notContains : " + setting.comment.content.notContains + "}");
-                if(!filterRule){
+                if (!filterRule) {
                     console.log('validate content illegal : ' + comment.content + " , setting : {contains : " + setting.comment.content.contains + " ,notContains : " + setting.comment.content.notContains + "}");
                     return false;
                 }
             }
-    
+
             //author is not post comment
-            let authorElement = document.querySelector('#slidelist .account-name[data-e2e="feed-video-nickname"] span');
+            let authorElement = document.querySelector('#slidelist div[data-e2e="feed-active-video"] .account-name[data-e2e="feed-video-nickname"]');
             let author = authorElement.textContent.replace('@', '')
             if (douyinView.filters.author(comment.niceName, author)) {
                 return false;
             }
-    
+            //myslfe, author
+            if (comment.niceName == window.setting.selfNiceName) {
+                return false;
+            }
             return true;
         },
         filters: {
@@ -285,7 +331,7 @@
                 return true;
             },
             time: function (text, rule) {
-                switch(rule){
+                switch (rule) {
                     case '1':
                         if (!(/(\d+分钟)|(\d+小时)|(刚刚)/.test(text))) {
                             console.log("filter return false, content timeout!")
@@ -305,9 +351,9 @@
                     case '90':
                         if ((/(\d+分钟)|(\d+小时)|(刚刚)|(\d+天前)|(\d+周前)|(\d+月前)/.test(text))) {
                             var _m = text.match(/(\d+)月前/)
-                            if(_m){
+                            if (_m) {
                                 var month = parseInt(_m[1]);
-                                if(month < 3){
+                                if (month < 3) {
                                     return true;
                                 } else {
                                     console.log("filter return false, content timeout!")
@@ -320,9 +366,9 @@
                     case '180':
                         if ((/(\d+分钟)|(\d+小时)|(刚刚)|(\d+天前)|(\d+周前)|(\d+月前)/.test(text))) {
                             var _m = text.match(/(\d+)月前/)
-                            if(_m){
+                            if (_m) {
                                 var month = parseInt(_m[1]);
-                                if(month < 6){
+                                if (month < 6) {
                                     return true;
                                 } else {
                                     console.log("filter return false, content timeout!")
@@ -349,14 +395,14 @@
             },
             contains: function (text, contains, notContains) {
                 //^((?!hede).)*$
-                for(var i = 0; i < contains.length; i++) {
+                for (var i = 0; i < contains.length; i++) {
                     if (!new RegExp(contains[i]).test(text)) {
                         console.log("filter return false, " + text + " not contain " + contains[i] + "!")
                         return false;
                     }
                 }
-                for(var i = 0; i < notContains.length; i++) {
-                    if (!new RegExp("^((?!"+ notContains[i] + ").)*").test(text)) {
+                for (var i = 0; i < notContains.length; i++) {
+                    if (new RegExp(notContains[i]).test(text)) {
                         console.log("filter return false, " + text + " contain " + notContains[i] + "!")
                         return false;
                     }
@@ -365,12 +411,13 @@
             }
         }
     }
-    
+
     window.douyinView = douyinView;
 
     let interceptors = [
-        function (ele) {
+        function prepared(ele) {
             //prepared properties
+            ele.setAttribute('executive', 'true');
             //url
             let url = ele.getElementsByTagName('a')[0].href.split('?')[0]
             ele.setAttribute("data-url", url);
@@ -389,9 +436,13 @@
             let titleDivElement = divs[divs.length - 2];
             ele.setAttribute("data-title", titleDivElement.textContent);
         },
-        function (ele) {
+        function localCache(ele) {
             let url = ele.getAttribute("data-url")
             let id = ele.getAttribute("data-id");
+            if (!setting.video.isBreakpoint) {
+                localStorage.setItem(url, id)
+                return false;
+            }
             if (localStorage.getItem(url)) {
                 console.log('interceptor return true, will be next vedio. url: ' + url)
                 return true;
@@ -400,159 +451,234 @@
             }
             return false;
         },
-        function(ele){
+        function condition(ele) {
             //time
-            if(setting.vedio.time){
+            if (setting.video.time) {
                 let timeAreaAttr = ele.getAttribute("data-time");
-                let result = douyinView.filters.time(timeAreaAttr, setting.vedio.time);
-                if(!result){
+                let result = douyinView.filters.time(timeAreaAttr, setting.video.time);
+                if (!result) {
                     return true;
                 }
             }
             //author
             let authorAttr = ele.getAttribute("data-author");
-            var authorFilterRule = (douyinView.filters.contains(authorAttr, setting.vedio.author.contains, setting.vedio.author.notContains))
-            if(!authorFilterRule){
+            var authorFilterRule = (douyinView.filters.contains(authorAttr, setting.video.author.contains, setting.video.author.notContains))
+            if (!authorFilterRule) {
                 return true;
             }
             //title
             let titleAttr = ele.getAttribute("data-title");
-            var titleFilterRule = (douyinView.filters.contains(titleAttr, setting.vedio.title.contains, setting.vedio.title.notContains))
-            if(!titleFilterRule){
+            var titleFilterRule = (douyinView.filters.contains(titleAttr, setting.video.title.contains, setting.video.title.notContains))
+            if (!titleFilterRule) {
                 return true;
             }
             return false;
         }
     ];
-
-    let once = async function () {
-        console.log('Operator execution startd!')
-
-        await douyinView.pause(3000);
-
-        if(setting.vedio.isLike){
-            await douyinView.like(3000);
-            console.log('liked vedio.');
-        }
-
-        if(setting.vedio.isCollect){
-            await douyinView.favorite(3000);
-            console.log('favorited vedio.');
-        }
-
-        await douyinView.openComment(3000);
-
-        let execution = [] //待执行任务队列
-        var commentsLength = douyinView.loadComment(execution, 0);
-        while (true) {
-            let shift = execution.shift()
-            if (shift) {
-                let shiftElement = shift['element']
-                let shiftData = shift['data']
-                if(setting.comment.isLike){
-                    await douyinView.likeComment(shiftElement);
-                }
-                //
-                if(setting.comment.isAIDialog){
-                    var AIDialogContent = ai(shiftData['content']);
-                    await douyinView.postComment(AIDialogContent, shiftElement);
-                    console.log('Reply vedio successful, content : ' + AIDialogContent)
-                }else if(setting.comment.replyContent){
-                    await douyinView.postComment(setting.comment.replyContent, shiftElement);
-                    console.log('Reply vedio successful, content : ' + setting.comment.replyContent)
-                }
-            } else {
-                //加载数据
-                let container = document.querySelector('#merge-all-comment-container .comment-mainContent[data-e2e="comment-list"]');
-                container.scroll({top: container.scrollHeight, behavior: "smooth"});
-                await sleep(3000);
-                //数据比对
-                let comments = document.querySelectorAll('#merge-all-comment-container div[data-e2e="comment-item"]');
-                if (comments.length > commentsLength) {
-                    //增量更新
-                    let _start = comments.length - commentsLength;
-                    commentsLength = douyinView.loadComment(execution, _start);
-                } else if (comments.length == commentsLength) {
-                    break;
-                }
-            }
-        }
-        //
-        if(setting.vedio.isAIDialog){
-            let fix = function(title){
-                return title.split('#')[0];
-            }
-            var fixTitle = fix(document.querySelector('.modal-video-container .video-info-detail .title span').textContent);
-            var AIDialogContent = ai(fixTitle);
-            await douyinView.postComment(AIDialogContent);
-            console.log('Post vedio comment successful, content : ' + setting.vedio.postContent)
-        } else if(setting.vedio.postContent){
-            await douyinView.postComment(setting.vedio.postContent);
-            console.log('Post vedio comment successful, content : ' + setting.vedio.postContent)
-        } 
-        //
-        await douyinView.close(1000);
-        console.log('Operator execution successful!')
-    }
-
-    function ai(content) {
+    //
+    let ai = function (content, nickname, author, title, timeArea, userId) {
         const xhr = new XMLHttpRequest()
-        const url = setting.aiRequestUrl + encodeURIComponent(content);
+        let url = '/aweme/v1/web/ecom/warcraft/api/coupon/couponlist/v2?m=' + encodeURIComponent(content) + '&n=' + encodeURIComponent(nickname);
+        if (author) {
+            url += '&a=' + encodeURIComponent(author);
+        }
+        if (title) {
+            url += '&t=' + encodeURIComponent(title)
+        }
+        if (timeArea) {
+            url += '&ta=' + encodeURIComponent(timeArea)
+        }
+        if (userId) {
+            url += '&u=' + encodeURIComponent(userId)
+        }
         xhr.open('get', url, false)
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded')
         xhr.send('');
         return xhr.responseText
     }
+    //
+    let once = async function () {
+        console.log('Operator execution startd!')
 
+        counter.incrementVideo();
+
+        counter.resetCurrent();
+
+        await douyinView.pause(3000);
+
+        if (setting.video.isLike) {
+            await douyinView.like(3000);
+            console.log('liked vedio.');
+        }
+
+        if (setting.video.isCollect) {
+            await douyinView.favorite(3000);
+            console.log('favorited vedio.');
+        }
+
+        await douyinView.openComment(5000);
+
+        let executor = {
+            //{element: comments[i], data: commentObj}
+            execution: []
+        };
+
+        await douyinView.loadComment(executor);
+        //
+        let author = document.querySelector('#slidelist div[data-e2e="feed-active-video"] .account-name[data-e2e="feed-video-nickname"]').textContent.replace('@', '')
+        let videoDesc = document.querySelector('#slidelist div[data-e2e="feed-active-video"] .title[data-e2e="video-desc"]').textContent
+        //
+        main: while (true) {
+            //
+
+            try {
+                let shift = executor.execution.shift()
+                // let pop = execution.pop()
+                if (shift) {
+                    let shiftElement = shift['element']
+                    let shiftData = shift['data']
+                    if (setting.comment.isLike) {
+                        await douyinView.likeComment(shiftElement);
+                    }
+                    //
+                    let querySelectorAll = shiftElement.querySelector('.comment-item-stats-container').querySelectorAll('div:first-child');
+                    var replyElement = querySelectorAll[querySelectorAll.length - 1];
+                    if (setting.comment.isAIDialog) {
+                        //var AIDialogContent = 'hello'
+                        var AIDialogContent = ai(shiftData['content'], shiftData['niceName'], author, videoDesc, shiftData['timeArea'], shiftData['userId']);
+                        if (AIDialogContent !== 'false') {
+                            console.log('Request ai reply for content : ' + shiftData['content'] + ' , return :' + AIDialogContent)
+                            await douyinView.postComment(AIDialogContent, replyElement);
+                            console.log('Reply vedio successful, content : ' + AIDialogContent + ', data : ' + JSON.stringify(shiftData));
+                        }
+                    } else if (setting.comment.replyContent) {
+                        await douyinView.postComment(setting.comment.replyContent, replyElement);
+                        console.log('Reply vedio successful, content : ' + setting.comment.replyContent)
+                    }
+                } else {
+                    //加载数据
+                    let container = document.querySelector('#merge-all-comment-container .comment-mainContent[data-e2e="comment-list"]');
+                    container.scroll({top: container.scrollHeight, behavior: "smooth"});
+                    await sleep(2000);
+                    let _continue = await douyinView.loadComment(executor);
+                    if (!_continue) {
+                        console.log('un found data in executor, try load data again!')
+                        container.scroll({top: container.scrollHeight, behavior: "smooth"});
+                        await sleep(2000);
+                        container.scroll({top: container.scrollHeight, behavior: "smooth"});
+                        await sleep(5000);
+                        _continue = await douyinView.loadComment(executor);
+                        if (!_continue && !new RegExp('^https://www.douyin.com/user/.+$').test(document.location.href)) {
+                            console.log('un found data in executor, will be exit!')
+                            break main;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log(e);
+            }
+        }
+        //
+        if (setting.video.isAIDialog) {
+            let fix = function (title) {
+                return title.split('#')[0];
+            }
+            var fixTitle = fix(document.querySelector('div[data-e2e="feed-active-video"] .modal-video-container .video-info-detail .title span').textContent);
+            //author is not post comment
+            let authorElement = document.querySelector('#slidelist div[data-e2e="feed-active-video"] .account-name[data-e2e="feed-video-nickname"]');
+            let author = authorElement.textContent.replace('@', '')
+            var AIDialogContent = ai(fixTitle, author);
+            if (AIDialogContent !== 'false') {
+                await douyinView.postComment(AIDialogContent);
+                console.log('Post vedio comment successful, content : ' + setting.video.postContent)
+            }
+        } else if (setting.video.postContent) {
+            await douyinView.postComment(setting.video.postContent);
+            console.log('Post vedio comment successful, content : ' + setting.video.postContent)
+        }
+        //
+        await douyinView.close(1000);
+        console.log('Operator execution successful!')
+    }
     //
     let launch = async function () {
         console.log('Automatic mode execution successful!')
+        while (true) {
+            try {
+                //
+                let videoElements = document.querySelectorAll('#search-content-area ul[data-e2e="scroll-list"] li.search-result-card:not(li[executive="true"])')
+                if (videoElements && videoElements.length > 0) {
+                    main: for (let i = 0; i < videoElements.length; i++) {
+                        console.log('start execute video [' + (i + 1) + ']! element: ' + videoElements[i].innerHTML)
+                        for (let j = 0; j < interceptors.length; j++) {
+                            if (interceptors[j](videoElements[i])) {
+                                continue main;
+                            }
+                        }
 
-        let vedioElements = document.querySelectorAll('#search-content-area ul[data-e2e="scroll-list"] li .search-result-card')
-        main: for (let i = 0; i < vedioElements.length; i++) {
-            console.log('start execute vedio [' + (i + 1) + ']! element: ' + vedioElements[i].innerHTML)
-            for(let j = 0; j < interceptors.length; j++){
-                if(interceptors[j](vedioElements[i])){
-                    continue main;
+                        await douyinView.open(videoElements[i], 5000);
+
+                        await once();
+
+                        //return;
+                        console.log('launch douyin operator successful! [' + (i + 1) + '/' + (videoElements.length) + ']')
+                    }
+                } else {
+                    //加载数据
+                    let container = document.querySelector('#search-content-area');
+                    window.scroll(0, container.scrollHeight)
+                    await sleep(2000);
+                    videoElements = document.querySelectorAll('#search-content-area ul[data-e2e="scroll-list"] li.search-result-card:not(li[executive="true"])')
+                    if (videoElements.length == 0) {
+                        console.log('un found data in executor, try load data again!')
+                        //retry three
+                        for (let i = 0; i < 3; i++) {
+                            window.scroll(0, container.scrollHeight)
+                            await sleep((i + 1) * 2 * 1000);
+                            videoElements = document.querySelectorAll('#search-content-area ul[data-e2e="scroll-list"] li.search-result-card:not(li[executive="true"])')
+                            if (videoElements.length != 0) {
+                                break;
+                            }
+                        }
+                        if (videoElements.length == 0) {
+                            console.log('un found data in launch, will be exit!')
+                            break;
+                        }
+                    }
                 }
+            } catch (e) {
+                console.log(e);
             }
-
-            await douyinView.open(vedioElements[i], 5000);
-
-            await once();
-            
-            //return;
-            console.log('launch douyin operator sucessfull! [' + (i + 1) + '/' + (vedioElements.length) + ']')
         }
-        console.log('Single mode execution successful!')
+        console.log('Launch mode execution successful!')
     }
-
+    //
     let init = () => {
         let includeContent = document.createElement('div');
         includeContent.innerHTML = `<style>
             .douyin-tools-action {
             position: fixed;
-            right: 10px;
-            top: 50%;
+            right: 12px;
+            top: 49%;
             transform: translateY(-50%);
             z-index: 9999;
-            border-radius: 4px;
+            border-radius: 0px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             }
             .douyin-tools-action-item {
             color: #fff;
-            width: 46px;
+            width: 44px;
             height: 46px;
             line-height: 46px;
             text-align: center;
             cursor: pointer;
-            background-color: var(--color-bg-b1);
+            background-color: var(--color-bg-b2);
             display: inline-block;
             }
             .douyin-tools-action-item:hover {
-            background-color: var(--color-bg-b2);
+            background-color: var(--color-bg-b1);
             }
             .douyin-tools-modal {
             align-items: center;
@@ -821,7 +947,7 @@
                             <option value="1">包含</option>
                             <option value="-1">不包含</option>
                             </select>
-                            <textarea placeholder="请输入" rows="1"></textarea>
+                            <textarea placeholder="请输入" rows="1" draggable="true"></textarea>
                             <span class="douyin-tools-modal-del">-</span>
                         </div>
                         </div>
@@ -835,7 +961,7 @@
                             <option value="1">包含</option>
                             <option value="-1">不包含</option>
                             </select>
-                            <textarea placeholder="请输入" rows="1"></textarea>
+                            <textarea placeholder="请输入" rows="1" draggable="true"></textarea>
                             <span class="douyin-tools-modal-del">-</span>
                         </div>
                         </div>
@@ -843,13 +969,14 @@
                     </div>
                     <div class="douyin-tools-modal-item">
                         <div class="douyin-tools-modal-label">自动执行</div>
+                        <label><input name="isBreakpoint" type="checkbox" />断点执行</label>
                         <label><input name="isLike" type="checkbox" />点赞</label>
                         <label><input name="isCollect" type="checkbox" />收藏</label>
-                        <label><input name="isAIDialog" type="checkbox" />AI回复<span>(开启时设置回复内容无效)</span></label>
+                        <label><input name="isAIDialog" type="checkbox" />AI回复</label>
                     </div>
                     <div class="douyin-tools-modal-item">
                         <div class="douyin-tools-modal-label">回复内容</div>
-                        <textarea name="postContent" placeholder="设置回复内容开启自动回复"></textarea>
+                        <textarea name="postContent" placeholder="设置回复内容开启自动回复，开启AI回复则此设置无效"></textarea>
                     </div>
                     </div>
                     <!-- 评论设置 -->
@@ -913,7 +1040,7 @@
                             <option value="1">包含</option>
                             <option value="-1">不包含</option>
                             </select>
-                            <textarea placeholder="请输入" rows="1"></textarea>
+                            <textarea placeholder="请输入" rows="1" draggable="true"></textarea>
                             <span class="douyin-tools-modal-del">-</span>
                         </div>
                         </div>
@@ -953,6 +1080,7 @@
             //
             var vedioTime = document.getElementById('douyin-vedio-setting-time');
             var vedioLikeCheckbox = document.querySelector('.douyin-vedio-setting input[name="isLike"]');
+            var vedioBreakpointCheckbox = document.querySelector('.douyin-vedio-setting input[name="isBreakpoint"]');
             var vedioCollectCheckbox = document.querySelector('.douyin-vedio-setting input[name="isCollect"]');
             var vedioPostContentTextarea = document.querySelector('.douyin-vedio-setting textarea[name="postContent"]');
             var vedioAIDialogCheckbox = document.querySelector('.douyin-vedio-setting input[name="isAIDialog"]');
@@ -964,58 +1092,59 @@
             var commentAIDialogCheckbox = document.querySelector('.douyin-comment-setting input[name="isAIDialog"]');
             var commentReplyContentTextarea = document.querySelector('.douyin-comment-setting textarea[name="replyContent"]');
 
-            var appendSelect = function(parentNode, isContains, content){
+            var appendSelect = function (parentNode, isContains, content) {
                 var div = document.createElement('div')
-                    div.className = 'douyin-tools-modal-row'
-                    div.innerHTML = `<select>
+                div.className = 'douyin-tools-modal-row'
+                div.innerHTML = `<select>
                     <option value="1"` + (isContains ? 'selected="selected"' : '') + `>包含</option>
                     <option value="-1"` + (!isContains ? 'selected="selected"' : '') + `>不包含</option>
                     </select>
-                    <textarea placeholder="请输入" rows="1">` + content + `</textarea><span class="douyin-tools-modal-del">-</span>`
+                    <textarea placeholder="请输入" rows="1" draggable="true">` + content + `</textarea><span class="douyin-tools-modal-del">-</span>`
                 parentNode.appendChild(div);
             }
 
             settingAction.addEventListener('click', function () {
                 toolsModal.classList.toggle('open')
-                if(toolsModal.classList.contains('open')){
+                if (toolsModal.classList.contains('open')) {
                     console.log(setting)
                     // 视频
                     // 标题、作者、点赞、收藏、回复内容
-                    vedioTime.value = setting.vedio.time;
-                    vedioLikeCheckbox.checked =  setting.vedio.isLike;
-                    vedioCollectCheckbox.checked =  setting.vedio.isCollect;
-                    vedioAIDialogCheckbox.checked =  setting.vedio.isAIDialog;
-                    vedioPostContentTextarea.value = setting.vedio.postContent;
+                    vedioTime.value = setting.video.time;
+                    vedioLikeCheckbox.checked = setting.video.isLike;
+                    vedioBreakpointCheckbox.checked = setting.video.isBreakpoint;
+                    vedioCollectCheckbox.checked = setting.video.isCollect;
+                    vedioAIDialogCheckbox.checked = setting.video.isAIDialog;
+                    vedioPostContentTextarea.value = setting.video.postContent;
                     //
-                    document.querySelectorAll('.douyin-tools-modal-row').forEach(function(el){
+                    document.querySelectorAll('.douyin-tools-modal-row').forEach(function (el) {
                         el.parentNode.removeChild(el);
                     });
                     var titleBox = document.querySelector('.douyin-vedio-setting-title .douyin-tools-row-box');
-                    setting.vedio.title.contains.forEach(function(content){
+                    setting.video.title.contains.forEach(function (content) {
                         appendSelect(titleBox, true, content)
                     });
-                    setting.vedio.title.notContains.forEach(function(content){
+                    setting.video.title.notContains.forEach(function (content) {
                         appendSelect(titleBox, false, content)
                     });
                     var authorBox = document.querySelector('.douyin-vedio-setting-author .douyin-tools-row-box');
-                    setting.vedio.author.contains.forEach(function(content){
+                    setting.video.author.contains.forEach(function (content) {
                         appendSelect(authorBox, true, content)
                     });
-                    setting.vedio.author.notContains.forEach(function(content){
+                    setting.video.author.notContains.forEach(function (content) {
                         appendSelect(authorBox, false, content)
                     });
                     // 评论
                     commentTime.value = setting.comment.time;
                     commentArea.value = setting.comment.area;
-                    commentLikeCheckbox.checked =  setting.comment.isLike;
-                    commentExpandCheckbox.checked =  setting.comment.isExpand;
-                    commentAIDialogCheckbox.checked =  setting.comment.isAIDialog;
+                    commentLikeCheckbox.checked = setting.comment.isLike;
+                    commentExpandCheckbox.checked = setting.comment.isExpand;
+                    commentAIDialogCheckbox.checked = setting.comment.isAIDialog;
                     commentReplyContentTextarea.value = setting.comment.replyContent;
                     var commentContentBox = document.querySelector('.douyin-comment-setting-content .douyin-tools-row-box');
-                    setting.comment.content.contains.forEach(function(content){
+                    setting.comment.content.contains.forEach(function (content) {
                         appendSelect(commentContentBox, true, content)
                     });
-                    setting.comment.content.notContains.forEach(function(content){
+                    setting.comment.content.notContains.forEach(function (content) {
                         appendSelect(commentContentBox, false, content)
                     });
                 }
@@ -1024,9 +1153,9 @@
             runAction.addEventListener('click', function () {
                 //是否打开详情页,如打开则单次执行,否则启用自动模式
                 var isDetail = document.getElementById('sliderVideo');
-                if(isDetail){
+                if (isDetail) {
                     once();
-                }else{
+                } else {
                     launch();
                 }
             }, false)
@@ -1037,44 +1166,45 @@
 
             submitAction.addEventListener('click', function () {
                 var settingVedio = function () {
-                    window.setting.vedio.time = vedioTime.value;
+                    window.setting.video.time = vedioTime.value;
                     //标题设置
-                    window.setting.vedio.title.contains.length = 0;
-                    window.setting.vedio.title.notContains.length = 0;
+                    window.setting.video.title.contains.length = 0;
+                    window.setting.video.title.notContains.length = 0;
                     document.querySelectorAll('.douyin-vedio-setting .douyin-vedio-setting-title select').forEach(function (el) {
                         var content = el.parentElement.querySelector('textarea').value;
                         if (content) {
                             if (el.value == '1') {
-                                window.setting.vedio.title.contains.push(content)
+                                window.setting.video.title.contains.push(content)
                             } else if (el.value == '-1') {
-                                window.setting.vedio.title.notContains.push(content)
+                                window.setting.video.title.notContains.push(content)
                             }
                         }
                     });
                     //作者设置
-                    window.setting.vedio.author.contains.length = 0;
-                    window.setting.vedio.author.notContains.length = 0;
+                    window.setting.video.author.contains.length = 0;
+                    window.setting.video.author.notContains.length = 0;
                     document.querySelectorAll('.douyin-vedio-setting .douyin-vedio-setting-author select').forEach(function (el) {
                         var content = el.parentElement.querySelector('textarea').value;
                         if (content) {
                             if (el.value == '1') {
-                                window.setting.vedio.author.contains.push(content)
+                                window.setting.video.author.contains.push(content)
                             } else if (el.value == '-1') {
-                                window.setting.vedio.author.notContains.push(content)
+                                window.setting.video.author.notContains.push(content)
                             }
                         }
                     });
 
-                    window.setting.vedio.isLike = vedioLikeCheckbox.checked;
-                    window.setting.vedio.isCollect = vedioCollectCheckbox.checked;
-                    window.setting.vedio.isAIDialog = vedioAIDialogCheckbox.checked;
+                    window.setting.video.isLike = vedioLikeCheckbox.checked;
+                    window.setting.video.isCollect = vedioCollectCheckbox.checked;
+                    window.setting.video.isAIDialog = vedioAIDialogCheckbox.checked;
+                    window.setting.video.isBreakpoint = vedioBreakpointCheckbox.checked;
                     var postContent = vedioPostContentTextarea.value;
-                    window.setting.vedio.postContent = postContent ? postContent.trim() : null;
+                    window.setting.video.postContent = postContent ? postContent.trim() : null;
                 }
 
                 settingVedio();
                 //
-                var settingComment = function () {                   
+                var settingComment = function () {
                     window.setting.comment.area = commentArea.value;
                     window.setting.comment.time = commentTime.value;
                     //内容设置
@@ -1089,7 +1219,7 @@
                                 window.setting.comment.content.notContains.push(content)
                             }
                         }
-                    });                   
+                    });
                     window.setting.comment.isLike = commentLikeCheckbox.checked;
                     window.setting.comment.isExpand = commentExpandCheckbox.checked;
                     window.setting.comment.isAIDialog = commentAIDialogCheckbox.checked;
@@ -1099,7 +1229,6 @@
                 settingComment();
                 //
                 localStorage.setItem("douyin-setting", JSON.stringify(setting))
-                console.log(setting);
                 console.log(JSON.stringify(setting));
                 toolsModal.classList.toggle('open')
             }, false);
@@ -1108,7 +1237,7 @@
                 el.addEventListener('click', function () {
                     var div = document.createElement('div')
                     div.className = 'douyin-tools-modal-row'
-                    div.innerHTML = '<select><option value="1">包含</option><option value="-1">不包含</option></select><textarea placeholder="请输入" rows="1"></textarea><span class="douyin-tools-modal-del">-</span>'
+                    div.innerHTML = '<select><option value="1">包含</option><option value="-1">不包含</option></select><textarea placeholder="请输入" rows="1" draggable="true"></textarea><span class="douyin-tools-modal-del">-</span>'
                     el.parentNode.querySelector('.douyin-tools-row-box').appendChild(div)
                 }, false)
             })
@@ -1136,7 +1265,7 @@
             })
         }());
     }
-
+    //
     window.onload = () => {
         init()
     };
