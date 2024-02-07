@@ -10,9 +10,9 @@
 * 交互中采用 await sleep(time) 等待操作，time值可以修改但不建议太短，频繁操作会弹出人机验证
 
 ### 使用方法
-1.浏览器安装tampermonkey插件，推荐chrome或firefox
-2.将douyin.operations.js脚本安装于tampermonkey中
-3.打开抖音官网，网页右边栏出现设置和运行按钮即安装成功
+* 1.浏览器安装tampermonkey插件，推荐chrome或firefox
+* 2.将douyin.operations.js脚本安装于tampermonkey中
+* 3.打开抖音官网，网页右边栏出现设置和运行按钮即安装成功
 
 <p>
 如需扩展AI功能，则需要开启Http请求和Http代理，代理和服务端程序请自行编写，将window.setting对象的aiRequestUrl属性设置为服务端请求地址即可，视频标题及评论内容将以配置的请求地址为前缀拼接。
